@@ -364,11 +364,13 @@ if (o instanceof Set) {       // Raw type
 Это означает то, что если *Sub* - субтип *Super*, то *Sub[]* - субтип *Super[]*. Напомню, почему я выше сказал, что если мы действительно хотим хранить объекты любого типа в коллекции, то следует использовать List<Object>, но не в List. Повторю текст выше: ```Более того, нельзя передать List<String> в метод, ожидающий List, но нельзя передать в метод, ожидающий List<Object>, так как List<String> субтип List, но не субтип List<Object> из-за существования определенных правил для дженериков. Из-за этого type safety не теряется.```
 
 Более строго (из википедии):
-> Ковариантностью называется сохранение иерархии наследования исходных типов в производных типах в том же порядке. Так, если класс Cat наследуется от класса Animal, то естественно полагать, что перечисление IEnumerable<Cat> будет потомком перечисления IEnumerable<Animal>. Действительно, «список из пяти кошек» — это частный случай «списка из пяти животных». В таком случае говорят, что тип (в данном случае обобщённый интерфейс) IEnumerable<T> ковариантен своему параметру-типу T.
 
-> Контравариантностью называется обращение иерархии исходных типов на противоположную в производных типах. Так, если класс String наследуется от класса Object, а делегат Action<T> определён как метод, принимающий объект типа T, то Action<Object> наследуется от делегата Action<String>, а не наоборот. Действительно, если «все строки — объекты», то «всякий метод, оперирующий произвольными объектами, может выполнить операцию над строкой», но не наоборот. В таком случае говорят, что тип (в данном случае обобщённый делегат) Action<T> контравариантен своему параметру-типу T.
+> Ковариантностью называется сохранение иерархии наследования исходных типов в производных типах в том же порядке. Так, если класс Cat наследуется от класса Animal, то естественно полагать, что перечисление IEnumerable\<Cat\> будет потомком перечисления IEnumerable\<Animal\>. Действительно, «список из пяти кошек» — это частный случай «списка из пяти животных». В таком случае говорят, что тип (в данном случае обобщённый интерфейс) IEnumerable<T> ковариантен своему параметру-типу T. 
+
+> Контравариантностью называется обращение иерархии исходных типов на противоположную в производных типах. Так, если класс String наследуется от класса Object, а делегат Action<T> определён как метод, принимающий объект типа T, то Action\<Object\> наследуется от делегата Action\<String\>, а не наоборот. Действительно, если «все строки — объекты», то «всякий метод, оперирующий произвольными объектами, может выполнить операцию над строкой», но не наоборот. В таком случае говорят, что тип (в данном случае обобщённый делегат) Action\<T\> контравариантен своему параметру-типу T. 
 
 Пример:
+
 ```java
 Object[] objectArray = new Long[1];
 objectArray[0] = "I don't fit in"; // Throws ArrayStoreException
@@ -396,7 +398,7 @@ ol.add("I don't fit in");
 List<?>[] listArray = new List<?>[64];
 ```
 
-Это потому, что unbounded wildcard - reified тип. Строго говоря, a non-reifiable type is one whose runtime representation contains less information than its compile-time representa-tion. Because  of  erasure,  the  only  parameterized  types  that  are  reifiable  are unbounded  wildcard  types 
+Это потому, что unbounded wildcard - reified тип. Строго говоря, non-reifiable type is one whose runtime representation contains less information than its compile-time representation. Because of erasure, the only parameterized types that are reifiable are unbounded wildcard types 
 
 Подводя итог:
-> In  summary,  arrays  and  generics  have  very  different  type  rules.  Arrays  are covariant and reified; generics are invariant and erased. As a consequence, arrays provide  runtime  type  safety  but  not  compile-time  type  safety,  and  vice  versa  for generics.  As  a  rule,  arrays  and  generics  don’t  mix  well.
+> In summary, arrays and generics have very different type rules. Arrays are covariant and reified; generics are invariant and erased. As a consequence, arrays provide runtime type safety but not compile-time type safety, and vice versa for generics. As a rule, arrays and generics don’t mix well.
