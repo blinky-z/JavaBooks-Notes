@@ -24,7 +24,7 @@ class FruitFactory {
 }
 ```
 
-**Factory** - это единичиный класс, без субклассов. Он используется тогда, когда создавать данные объекты в конструкторе сложно.
+**Factory** - это единичный класс, без субклассов. Он используется тогда, когда создавать данные объекты в конструкторе сложно.
 
 #### 2. Factory method
 ```java
@@ -184,7 +184,7 @@ If you declare a member class that does not require access to an enclosing insta
 
 
 **Anonymous classes:**
-Анонимные классы имеют ссылку на enclosing класс, когда они объявляются в non-static методе. Иначе они не имеют ссылки на enclosing класс. Anonymous классы использовались раннее для созданиия function objects.
+Анонимные классы имеют ссылку на enclosing класс, когда они объявляются в non-static методе. Иначе они не имеют ссылки на enclosing класс. Anonymous классы использовались раннее для созданиия function objects (так как функции в джаве не являются first class function).
 
 Anonymous классы should be kept short.
 
@@ -201,6 +201,13 @@ Local class имеет общие свойства с member классами и
 **Вывод:**
 
 To  recap,  there  are  four  different  kinds  of  nested  classes,  and  each  has  its place. If a nested class needs to be visible outside of a single method or is too long to fit comfortably inside a method, use a member class. If each instance of a mem-ber class needs a reference to its enclosing instance, make it nonstatic; otherwise,make it static. Assuming the class belongs inside a method, if you need to create instances from only one location and there is a preexisting type that characterizes the class, make it an anonymous class; otherwise, make it a local class.
+
+---
+
+### Что такое first class function?
+Говорится, что язык программирования имеет first class functions, если функции в нем являются first class objects.
+
+First class objects - это элементы, которые могут быть переданы как параметр, возвращены из функции, присвоены переменной, созданы во время выполнения.
 
 ---
 
@@ -402,3 +409,228 @@ List<?>[] listArray = new List<?>[64];
 
 Подводя итог:
 > In summary, arrays and generics have very different type rules. Arrays are covariant and reified; generics are invariant and erased. As a consequence, arrays provide runtime type safety but not compile-time type safety, and vice versa for generics. As a rule, arrays and generics don’t mix well.
+
+---
+
+# Chapter 6 - Enums and Annotations
+
+Джава имеет два специальных типа ссылок: Enum тип класса и Annotation тип интерфейса. Здесь рассматриваются best practices для этих типов.
+
+### Item 34: Use enums instead of int constants
+
+Почему следует использовать enum вместе int enum паттерна:
+
+1. Int enum паттерн не дает возможности тайп чека. Это означает нарушение инвариантности в некоторых функциях, например если метод ожидает 3 значения интов - 0, 1, 2, то ничего не затруднит передать просто 4, так как типа параметра int. Или например мы можем сравнивать разные семейства констант с помощью == оператора, что точно нельзя делать. То есть, compile time safety.
+2. Более того, enum класс - это полноценный класс с полями и методами, и это дает намного больше возможностей. Например, хотя бы мы можем менять вывод с помощью переопределения метода toString().
+3. Нет неймспейса специального под константы. Приходится писать через префикс. Например: APPLE_FUJI и ORANGE_TEMPLE.
+
+Еще в енамах можно создавать методы и даже существует способ определния поведения метода в зависимости от енама. Это делается легко - определяется абстрактный метод в классе енама, а инстансы енама реализуют этот метод. 
+
+Вот пример:
+```java
+// Enum type with constant-specific method implementations
+public enum Operation {
+    PLUS  {public double apply(double x, double y){return x + y;}},
+    MINUS {public double apply(double x, double y){return x - y;}},
+    TIMES {public double apply(double x, double y){return x * y;}},
+    DIVIDE{public double apply(double x, double y){return x / y;}};
+    
+    public abstract double apply(double x, double y);
+}
+```
+
+A  disadvantage  of  constant-specific  method  implementations  is  that  theymake  it  harder  to  share  code  among  enum  constants.
+Поэтому можно сделать по другому: определить еще один nested enum, в котором будут как инстансы с тем же методом определены инстансы поведений, а далее эти инстансы поведений передавать в конструктор top level енама, и при необходимости вызова метода делегировать вызов nested енаму:
+```java
+// The strategy enum pattern
+enum PayrollDay {
+    MONDAY, TUESDAY, WEDNESDAY, THURSDAY, FRIDAY,
+    SATURDAY(PayType.WEEKEND), SUNDAY(PayType.WEEKEND);
+
+    private final PayType payType;
+
+    PayrollDay(PayType payType) { this.payType = payType; }
+    PayrollDay() { this(PayType.WEEKDAY); }  // Default
+
+    int pay(int minutesWorked, int payRate) {return payType.pay(minutesWorked, payRate);}
+
+    // The strategy enum type
+    private enum PayType {
+        WEEKDAY {
+            int overtimePay(int minsWorked, int payRate) {return minsWorked <= MINS_PER_SHIFT ? 0 :(minsWorked - MINS_PER_SHIFT) * payRate / 2;}
+        },
+        WEEKEND {
+            int overtimePay(int minsWorked, int payRate) {return minsWorked * payRate / 2;}
+        };
+
+        abstract int overtimePay(int mins, int payRate);
+        private static final int MINS_PER_SHIFT = 8 * 60;
+        
+        int pay(int minsWorked, int payRate) {int basePay = minsWorked * payRate;return basePay + overtimePay(minsWorked, payRate);}
+    }
+}
+```
+
+То есть кратко, enum-ы более понятны и читабельнее, безопаснее и мощнее.
+
+---
+
+### Item 35: Use instance fields instead of ordinals
+
+Каждый enum имеет метод *ordinal()*. Он возвращает числовое значение enum-а. И данный итем заключается в том, что если требуется числовое значение завязанное на конкретном енаме, то это число следует передавать в конструктор и хранить его как instance field данного енама. Причины такие:
+
+- Порядок может меняться, и значит ordinal() тоже меняет свое значение, и приложение сломается в рантайме
+- Добавлять новые енамы сложно, тем более с значениями большими чем количество енамов (так как ordinal() берет значение по порядку)
+
+---
+
+### Item 36:  Use EnumSet instead of bit fields
+
+Если элементы enum используются в сетах констант (наборах констант), то обычно применяется int enum pattern, присваивая каждой константе различную степень двойки:
+```java
+public class Text {
+    public static final int STYLE_BOLD          = 1 << 0;  // 1
+    public static final int STYLE_ITALIC        = 1 << 1;  // 2
+
+    public void applyStyles(int styles) { ... }
+}
+```
+и используется это так:
+```java
+text.applyStyles(STYLE_BOLD | STYLE_ITALIC);
+```
+
+Этот сет констант называется *bit field*.
+
+Недостатки такого подхода - это все недостатки int enum pattern, но имеются и другие:
+- Это даже сложнее интерпретировать результат вывода bit field, чем просто int
+- Нет легкого способа пройтись по всем элементам представляемым данным bit полем. Например, как сверху, обойти STYLE_BOLD | STYLE_ITALIC.
+- И наконец, однажды выбрав количество битов (int и long - 32 и 64 бита соответственно), будет сложно поменять API, так как типы отличаются и будет ошибка компиляции.
+
+Но в джаве есть лучшее решение - **EnumSet**.
+
+Внутри EnumSet представлен бит вектором, единичным long полем, поэтому он эффективен.
+Более того, всю работу с наборот констант класс делает сам, и более того, делает тоже с помощью битовой арифметики, то есть избавляет вас от тяжелой работы где легко ошибиться (error-proneness работа).
+
+С использованием EnumSet код становится намного понятнее и легче:
+```java
+public class Text {
+    public enum Style { BOLD, ITALIC, UNDERLINE, STRIKETHROUGH }
+
+    public void applyStyles(Set<Style> styles) { ... }
+}
+```
+
+А использовать можно так:
+```java
+text.applyStyles(EnumSet.of(Style.BOLD, Style.ITALIC));
+```
+
+---
+
+### Item 37: Use EnumMap instead of ordinal indexing
+
+Часто необходимо мапить элементы по енамам, но нельзя для этого использовать метод ordinal() для мапинга как индекс элемента массива или листа. Например так:
+ ```java
+class Plant {
+    enum LifeCycle { ANNUAL, PERENNIAL, BIENNIAL }
+    
+    final String name;
+    final LifeCycle lifeCycle;
+    
+    Plant(String name, LifeCycle lifeCycle) {
+        this.name = name;
+        this.lifeCycle = lifeCycle;
+    }
+
+    @Override 
+    public String toString() {
+        return name;
+    }
+};
+
+Set<Plant>[] plantsByLifeCycle = (Set<Plant>[]) new Set[Plant.LifeCycle.values().length];
+
+for (int i = 0; i < plantsByLifeCycle.length; i++) {
+    plantsByLifeCycle[i] = new HashSet<>();
+}
+
+for (Plant p : garden) {
+    plantsByLifeCycle[p.lifeCycle.ordinal()].add(p);
+}
+```
+
+по следующим причинам:
+- Так как лист или массив не знает, какой индекс представляет какой енам, то маппинг придется делать самим (момент с `plantsByLifeCycle[p.lifeCycle.ordinal()]`)
+- Приходится проверять корректность int значения, нет compile time safety енамов
+
+Есть способ лучше сделать такую логику - использовать *Map*, где ключ - сам enum, а значения то что требуется. Однако, существует специальная реализации мапы для енамов, более быстрая и эффективная - **EnumMap**.
+
+Вот как будет выглядеть прежний код с использованием EnumMap:
+```java
+Map<Plant.LifeCycle, Set<Plant>> plantsByLifeCycle 
+    = new EnumMap<>(Plant.LifeCycle.class);
+
+for (Plant.LifeCycle lc : Plant.LifeCycle.values()) {
+    plantsByLifeCycle.put(lc, new HashSet<>());
+}
+
+for (Plant p : garden) {
+    plantsByLifeCycle.get(p.lifeCycle).add(p);
+}
+
+System.out.println(plantsByLifeCycle);
+```
+
+Этот код короче, чище и понятнее, и есть тайп чек. По быстроте эта мапа сравнима с реализацией через массив выше, так как на самом деле внутренне EnumMap представлен массивом, таким образом мы берем быстроту работы массива и type safety от мапы.
+
+---
+
+### Item 38: Emulate extensible enums with interfaces
+
+Иногда небходимо расширять енамы, но так как *enum* в Джаве - это static final класс, то его нельзя экстендить.
+
+Да и вообще, это не требуется обычно, но если все таки требуется, то делается это так: создается интерфейс, и его имплементируют множество енамов, а в методах принимается и отдается объект типа интерфейса, а не конкретного енама.
+
+Недостаток такого подхода понятен - невозможно наследовать имплементацию от одного енама к другому. Однако, если имплементация не зависит от состояния, то ее можно поместить в default метод интерфейса.
+
+Однако, как мы увидели, эмулировать расширение енамов все таки можно.
+
+---
+
+### Item 39: Prefer annotations to naming patterns
+
+Что-то про использование аннотаций, не буду писать.
+
+---
+
+### Item 40: Consistently use the Override annotation
+
+Следует использовать аннотацию @Override при переопределении метода super класса по следующим причинам:
+- данная аннотация позволяет показать явно, что метод переопределен - читабельность и ясность кода
+- помощь компилятора: проверяет, правда ли переопределяем такой метод. Например, метод может не существовать, или мы вообще перегружаем вместо переопределения.
+
+Можно не использовать аннотацию при расширении абстрактного класса с абстрактным методом, так как компилятор все равно выдаст ошибку, если мы не переопределим абстрактный метод.
+
+Однако, аннотацию можно и даже нужно использовать на всех методах абстратного класса или интерфейса, если они расширяют другой супер класс или суперинтерфейс соответственно, и мы хотим убедиться, что мы не добавили никаких новых методов кроме тех, что были в супер классе или интерфейсе.
+
+Например, интерфейс *Set* не добавляет никаких новых методов к интерфейсу *Collection*, но расширяет его и поэтому там методы могли бы быть помечены как @Override (там это не делается, но просто как пример).
+
+---
+
+### Item 41: Use marker interfaces to define types
+
+A **marker interface** is an interface that contains no method declarations but merely designates  (or  “marks”) a class that implements the interface as having some property. For example, consider the *Serializable* interface (Chapter 12). By implementing this interface, a class indicates that its instances can be written to an `ObjectOutputStream` (or “serialized”).
+
+Так, зачем же нужен *marker interface*, когда есть *marker annotation*?
+
+**Marker interfaces have two advantages over  marker  annotations.**
+
+1. First  and  foremost,  marker  interfaces  define  a  type that is implemented by instances of the marked class; marker annotations do not. The existence of a marker interface type allows you to catch errors at compile time that you couldn’t catch until runtime if you used a marker annotation. То есть, в каком то методе можно применять объекты, реализующие этот интерфейс, и это проверка в компил тайме.
+2. Another advantage of marker interfaces over marker annotations is that they can be targeted more precisely. Мы можем marker interface экстендить от другого интерфейса, и применяя к классам, мы убеждаемся, что помеченные типы будут также подтипами sole interface, который мы расширили.
+
+**The chief advantage of marker annotations over marker interfaces is that they  are  part  of  the  larger  annotation  facility.**  Therefore,  marker  annotationsallow for consistency in annotation-based frameworks
+
+**Как выбрать, что использовать, *marker annotation* или *marker interface*?**
+
+So  when  should  you  use  a  marker  annotation  and  when  should  you  use  a marker interface? Clearly you must use an annotation if the marker applies to any program  element  other  than  a  class  or  interface,  because  only  classes  and  inter-faces can be made to implement or extend an interface. If the marker applies only to classes and interfaces, ask yourself the question “Might I want to write one or more methods that accept only objects that have this marking?” If so, you should use a marker interface in preference to an annotation. This will make it possible for you to use the interface as a parameter type for the methods in question, which will result in the benefit of compile-time type checking. If you can convince your-self  that  you’ll  never  want  to  write  a  method  that  accepts  only  objects  with  the marking, then you’re probably better off using a marker annotation. If, additionally, the marking is part of a framework that makes heavy use of annotations, then a marker annotation is the clear choice.
