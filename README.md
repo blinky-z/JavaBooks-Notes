@@ -1314,3 +1314,13 @@ public Object pop() {
 Этот айтем применяется в равной степени к checked и unchecked исключениям.
 
 ---
+
+# Chapter 11: Concurrency
+
+Эта глава о конкуррентности. Но я здесь писать много не буду, просто буду читать, так как в будущем я планирую изучить книгу Java Concurrency in Practice.
+
+Выделю один момент здесь. **Item 83: Use lazy initialization judiciously** очень важен, он показывает правильные техники делания lazy initialization - для static полей - про holder class, для instance полей - про double-check idiom и single-check idiom. Также там сказано про использование volatile.
+
+---
+
+Все, это все заметки по книге. Пытался собрать самое важное.
